@@ -261,7 +261,7 @@ INSERT INTO preferences (category, key, value, description, importance) VALUES
 ON CONFLICT (category, key) DO NOTHING;
 
 -- Create a view for easy persona retrieval
-CREATE VIEW persona_overview AS
+CREATE OR REPLACE VIEW persona_overview AS
 SELECT 
   'personality' as data_type,
   json_agg(
