@@ -4,37 +4,70 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create enum types
-CREATE TYPE personality_trait_type AS ENUM (
-  'openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism',
-  'creativity', 'analytical', 'empathy', 'leadership', 'humor', 'optimism', 'risk_tolerance'
-);
+-- Create enum types (with conditional creation)
+DO $$ BEGIN
+    CREATE TYPE personality_trait_type AS ENUM (
+      'openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism',
+      'creativity', 'analytical', 'empathy', 'leadership', 'humor', 'optimism', 'risk_tolerance'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE communication_category AS ENUM (
-  'writing_style', 'vocabulary', 'tone', 'structure', 'humor', 'formality'
-);
+DO $$ BEGIN
+    CREATE TYPE communication_category AS ENUM (
+      'writing_style', 'vocabulary', 'tone', 'structure', 'humor', 'formality'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE goal_category AS ENUM (
-  'personal', 'professional', 'creative', 'learning', 'health', 'financial'
-);
+DO $$ BEGIN
+    CREATE TYPE goal_category AS ENUM (
+      'personal', 'professional', 'creative', 'learning', 'health', 'financial'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE goal_priority AS ENUM ('low', 'medium', 'high', 'critical');
-CREATE TYPE goal_status AS ENUM ('active', 'completed', 'paused', 'cancelled');
+DO $$ BEGIN
+    CREATE TYPE goal_priority AS ENUM ('low', 'medium', 'high', 'critical');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE thinking_pattern_type AS ENUM (
-  'decision_making', 'problem_solving', 'creativity', 'analysis', 'planning'
-);
+DO $$ BEGIN
+    CREATE TYPE goal_status AS ENUM ('active', 'completed', 'paused', 'cancelled');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE importance_level AS ENUM ('low', 'medium', 'high');
+DO $$ BEGIN
+    CREATE TYPE thinking_pattern_type AS ENUM (
+      'decision_making', 'problem_solving', 'creativity', 'analysis', 'planning'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE content_type AS ENUM (
-  'text', 'conversation', 'decision', 'preference', 'goal'
-);
+DO $$ BEGIN
+    CREATE TYPE importance_level AS ENUM ('low', 'medium', 'high');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE content_type AS ENUM (
+      'text', 'conversation', 'decision', 'preference', 'goal'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Main tables
 
 -- Personality Traits Table
-CREATE TABLE personality_traits (
+CREATE TABLE IF NOT EXISTS personality_traits (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(100) NOT NULL,
   trait_type personality_trait_type,
@@ -47,7 +80,7 @@ CREATE TABLE personality_traits (
 );
 
 -- Communication Patterns Table
-CREATE TABLE communication_patterns (
+CREATE TABLE IF NOT EXISTS communication_patterns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   category communication_category NOT NULL,
   pattern TEXT NOT NULL,
@@ -60,7 +93,7 @@ CREATE TABLE communication_patterns (
 );
 
 -- Goals Table
-CREATE TABLE goals (
+CREATE TABLE IF NOT EXISTS goals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title VARCHAR(200) NOT NULL,
   description TEXT,
@@ -75,7 +108,7 @@ CREATE TABLE goals (
 );
 
 -- Preferences Table
-CREATE TABLE preferences (
+CREATE TABLE IF NOT EXISTS preferences (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   category VARCHAR(100) NOT NULL,
   key VARCHAR(100) NOT NULL,
@@ -88,7 +121,7 @@ CREATE TABLE preferences (
 );
 
 -- Thinking Patterns Table
-CREATE TABLE thinking_patterns (
+CREATE TABLE IF NOT EXISTS thinking_patterns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   pattern_type thinking_pattern_type NOT NULL,
   description TEXT NOT NULL,
@@ -101,7 +134,7 @@ CREATE TABLE thinking_patterns (
 );
 
 -- Learning Input History Table
-CREATE TABLE learning_inputs (
+CREATE TABLE IF NOT EXISTS learning_inputs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   content TEXT NOT NULL,
   content_type content_type NOT NULL,
@@ -112,7 +145,7 @@ CREATE TABLE learning_inputs (
 );
 
 -- Persona Snapshots Table (for versioning)
-CREATE TABLE persona_snapshots (
+CREATE TABLE IF NOT EXISTS persona_snapshots (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   version VARCHAR(20) NOT NULL,
   summary TEXT,
@@ -122,7 +155,7 @@ CREATE TABLE persona_snapshots (
 );
 
 -- MCP Interaction Logs Table
-CREATE TABLE mcp_interactions (
+CREATE TABLE IF NOT EXISTS mcp_interactions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tool_name VARCHAR(100) NOT NULL,
   input_data JSONB,
@@ -134,33 +167,33 @@ CREATE TABLE mcp_interactions (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_personality_traits_type ON personality_traits(trait_type);
-CREATE INDEX idx_personality_traits_updated ON personality_traits(updated_at);
+CREATE INDEX IF NOT EXISTS idx_personality_traits_type ON personality_traits(trait_type);
+CREATE INDEX IF NOT EXISTS idx_personality_traits_updated ON personality_traits(updated_at);
 
-CREATE INDEX idx_communication_patterns_category ON communication_patterns(category);
-CREATE INDEX idx_communication_patterns_updated ON communication_patterns(updated_at);
+CREATE INDEX IF NOT EXISTS idx_communication_patterns_category ON communication_patterns(category);
+CREATE INDEX IF NOT EXISTS idx_communication_patterns_updated ON communication_patterns(updated_at);
 
-CREATE INDEX idx_goals_status ON goals(status);
-CREATE INDEX idx_goals_priority ON goals(priority);
-CREATE INDEX idx_goals_category ON goals(category);
-CREATE INDEX idx_goals_updated ON goals(updated_at);
+CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+CREATE INDEX IF NOT EXISTS idx_goals_priority ON goals(priority);
+CREATE INDEX IF NOT EXISTS idx_goals_category ON goals(category);
+CREATE INDEX IF NOT EXISTS idx_goals_updated ON goals(updated_at);
 
-CREATE INDEX idx_preferences_category ON preferences(category);
-CREATE INDEX idx_preferences_importance ON preferences(importance);
+CREATE INDEX IF NOT EXISTS idx_preferences_category ON preferences(category);
+CREATE INDEX IF NOT EXISTS idx_preferences_importance ON preferences(importance);
 
-CREATE INDEX idx_thinking_patterns_type ON thinking_patterns(pattern_type);
-CREATE INDEX idx_thinking_patterns_updated ON thinking_patterns(updated_at);
+CREATE INDEX IF NOT EXISTS idx_thinking_patterns_type ON thinking_patterns(pattern_type);
+CREATE INDEX IF NOT EXISTS idx_thinking_patterns_updated ON thinking_patterns(updated_at);
 
-CREATE INDEX idx_learning_inputs_type ON learning_inputs(content_type);
-CREATE INDEX idx_learning_inputs_processed ON learning_inputs(processed);
-CREATE INDEX idx_learning_inputs_created ON learning_inputs(created_at);
+CREATE INDEX IF NOT EXISTS idx_learning_inputs_type ON learning_inputs(content_type);
+CREATE INDEX IF NOT EXISTS idx_learning_inputs_processed ON learning_inputs(processed);
+CREATE INDEX IF NOT EXISTS idx_learning_inputs_created ON learning_inputs(created_at);
 
-CREATE INDEX idx_persona_snapshots_version ON persona_snapshots(version);
-CREATE INDEX idx_persona_snapshots_created ON persona_snapshots(created_at);
+CREATE INDEX IF NOT EXISTS idx_persona_snapshots_version ON persona_snapshots(version);
+CREATE INDEX IF NOT EXISTS idx_persona_snapshots_created ON persona_snapshots(created_at);
 
-CREATE INDEX idx_mcp_interactions_tool ON mcp_interactions(tool_name);
-CREATE INDEX idx_mcp_interactions_created ON mcp_interactions(created_at);
-CREATE INDEX idx_mcp_interactions_success ON mcp_interactions(success);
+CREATE INDEX IF NOT EXISTS idx_mcp_interactions_tool ON mcp_interactions(tool_name);
+CREATE INDEX IF NOT EXISTS idx_mcp_interactions_created ON mcp_interactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_mcp_interactions_success ON mcp_interactions(success);
 
 -- Create triggers for updating updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -177,25 +210,28 @@ CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECU
 CREATE TRIGGER update_preferences_updated_at BEFORE UPDATE ON preferences FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_thinking_patterns_updated_at BEFORE UPDATE ON thinking_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert some default personality traits structure
+-- Insert some default personality traits structure (only if not exists)
 INSERT INTO personality_traits (name, trait_type, value, description, examples) VALUES
 ('Openness to Experience', 'openness', 70, 'Willingness to try new things and think outside the box', ARRAY['Enjoys learning new skills', 'Open to different perspectives']),
 ('Conscientiousness', 'conscientiousness', 80, 'Organization, responsibility, and attention to detail', ARRAY['Plans ahead', 'Meets deadlines consistently']),
 ('Extraversion', 'extraversion', 60, 'Energy derived from social interaction', ARRAY['Enjoys group discussions', 'Comfortable presenting']),
 ('Agreeableness', 'agreeableness', 75, 'Tendency to be cooperative and trusting', ARRAY['Seeks consensus', 'Considers others feelings']),
-('Emotional Stability', 'neuroticism', 30, 'Ability to remain calm under pressure (low neuroticism)', ARRAY['Stays calm in crises', 'Handles stress well']);
+('Emotional Stability', 'neuroticism', 30, 'Ability to remain calm under pressure (low neuroticism)', ARRAY['Stays calm in crises', 'Handles stress well'])
+ON CONFLICT (name) DO NOTHING;
 
 -- Insert some default communication patterns
 INSERT INTO communication_patterns (category, pattern, frequency, context, examples) VALUES
 ('writing_style', 'Clear and concise', 8, ARRAY['emails', 'documentation'], ARRAY['Gets to the point quickly', 'Uses bullet points']),
 ('tone', 'Professional but friendly', 7, ARRAY['work communication'], ARRAY['Uses please and thank you', 'Maintains warmth']),
-('vocabulary', 'Technical when appropriate', 6, ARRAY['technical discussions'], ARRAY['Uses industry terms correctly', 'Explains complex concepts simply']);
+('vocabulary', 'Technical when appropriate', 6, ARRAY['technical discussions'], ARRAY['Uses industry terms correctly', 'Explains complex concepts simply'])
+ON CONFLICT (category, pattern) DO NOTHING;
 
 -- Insert some default preferences
 INSERT INTO preferences (category, key, value, description, importance) VALUES
 ('work_style', 'preferred_communication', '"email"', 'Prefers email over phone calls for non-urgent matters', 'medium'),
 ('decision_making', 'research_depth', '"thorough"', 'Prefers to research thoroughly before making decisions', 'high'),
-('creativity', 'brainstorming_style', '"collaborative"', 'Works best when brainstorming with others', 'medium');
+('creativity', 'brainstorming_style', '"collaborative"', 'Works best when brainstorming with others', 'medium')
+ON CONFLICT (category, key) DO NOTHING;
 
 -- Create a view for easy persona retrieval
 CREATE VIEW persona_overview AS
