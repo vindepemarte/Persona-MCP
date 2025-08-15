@@ -52,7 +52,16 @@ class Database {
 
   private constructor() {
     const config = getDatabaseConfig();
-    this.pool = new Pool(config as PoolConfig);
+    
+    // Handle SSL configuration for managed databases
+    const poolConfig: PoolConfig = {
+      ...config,
+      ssl: config.ssl ? {
+        rejectUnauthorized: false // Accept self-signed certificates from managed databases
+      } : false
+    };
+    
+    this.pool = new Pool(poolConfig);
     
     this.pool.on('error', (err: Error) => {
       console.error('Unexpected error on idle client', err);
