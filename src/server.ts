@@ -292,6 +292,17 @@ class PersonaMCPServer {
     const port = process.env.PORT || 3000;
     
     const server = http.createServer((req: any, res: any) => {
+      // CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+      
+      if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
+      
       if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -300,6 +311,21 @@ class PersonaMCPServer {
           version: '1.0.0'
         }));
       } else if (req.url === '/mcp' && req.method === 'POST') {
+        // Check API key authentication
+        const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+        const expectedApiKey = process.env.API_KEY;
+        
+        if (!expectedApiKey) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Server configuration error: API_KEY not set' }));
+          return;
+        }
+        
+        if (!apiKey || apiKey !== expectedApiKey) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: Invalid or missing API key' }));
+          return;
+        }
         let body = '';
         req.on('data', (chunk: any) => body += chunk);
         req.on('end', async () => {
