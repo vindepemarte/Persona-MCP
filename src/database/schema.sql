@@ -204,10 +204,19 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_personality_traits_updated_at ON personality_traits;
 CREATE TRIGGER update_personality_traits_updated_at BEFORE UPDATE ON personality_traits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_communication_patterns_updated_at ON communication_patterns;
 CREATE TRIGGER update_communication_patterns_updated_at BEFORE UPDATE ON communication_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_goals_updated_at ON goals;
 CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_preferences_updated_at ON preferences;
 CREATE TRIGGER update_preferences_updated_at BEFORE UPDATE ON preferences FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_thinking_patterns_updated_at ON thinking_patterns;
 CREATE TRIGGER update_thinking_patterns_updated_at BEFORE UPDATE ON thinking_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert some default personality traits structure (only if not exists)
