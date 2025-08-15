@@ -16,6 +16,23 @@ export interface DatabaseConfig {
 }
 
 export const getDatabaseConfig = (): DatabaseConfig => {
+  // Check if DATABASE_URL is provided (Coolify/Heroku style)
+  if (process.env.DATABASE_URL) {
+    const url = new URL(process.env.DATABASE_URL);
+    return {
+      host: url.hostname,
+      port: parseInt(url.port) || 5432,
+      database: url.pathname.slice(1), // Remove leading slash
+      user: url.username,
+      password: url.password,
+      ssl: url.searchParams.get('sslmode') === 'require' || process.env.DB_SSL === 'true',
+      max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '2000')
+    };
+  }
+  
+  // Fallback to individual environment variables
   return {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432'),
