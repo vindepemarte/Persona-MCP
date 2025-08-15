@@ -1,0 +1,119 @@
+# Coolify Configuration for Persona MCP Server
+# This file configures the deployment of the Persona MCP Server on Coolify
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: persona_mcp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d persona_mcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "coolify.managed=true"
+      - "coolify.type=database"
+      - "coolify.name=persona-mcp-database"
+
+  # Main Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: persona_mcp
+      DB_USER: postgres
+      DB_PASSWORD: ${DATABASE_PASSWORD}
+      DB_SSL: false
+      AUTO_MIGRATE: true
+      PORT: 3000
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    volumes:
+      - app_logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "coolify.managed=true"
+      - "coolify.type=application"
+      - "coolify.name=persona-mcp-server"
+      - "coolify.port=3000"
+      - "coolify.domain=${DOMAIN:-persona-mcp.yourdomain.com}"
+      - "coolify.https=true"
+      - "coolify.redirect=true"
+
+volumes:
+  database_data:
+    driver: local
+    labels:
+      - "coolify.managed=true"
+  app_logs:
+    driver: local
+    labels:
+      - "coolify.managed=true"
+
+# Coolify-specific configuration
+x-coolify:
+  # Environment variables that will be set in Coolify
+  environment:
+    - DATABASE_PASSWORD=generate_random_password
+    - DOMAIN=persona-mcp.yourdomain.com
+    - JWT_SECRET=generate_random_secret
+    - API_KEY=generate_random_api_key
+  
+  # Resource limits
+  resources:
+    app:
+      memory: 512M
+      cpu: 0.5
+    database:
+      memory: 256M
+      cpu: 0.25
+  
+  # Backup configuration
+  backups:
+    database:
+      enabled: true
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      retention: 7  # Keep 7 days of backups
+  
+  # Monitoring
+  monitoring:
+    enabled: true
+    endpoints:
+      - name: "Health Check"
+        url: "http://app:3000/health"
+        interval: 60
+      - name: "Database Check"
+        url: "postgresql://postgres:${DATABASE_PASSWORD}@database:5432/persona_mcp"
+        interval: 300
+  
+  # Scaling
+  scaling:
+    app:
+      min_replicas: 1
+      max_replicas: 3
+      target_cpu: 70
+      target_memory: 80

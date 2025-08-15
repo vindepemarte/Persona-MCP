@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: persona-mcp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: persona_mcp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-persona_mcp_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - persona-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d persona_mcp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Persona MCP Server
+  persona-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: persona-mcp-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: persona_mcp
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-persona_mcp_password}
+      DB_SSL: false
+      AUTO_MIGRATE: true
+      PORT: 3000
+      LOG_LEVEL: info
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - persona-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: persona-mcp-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@persona-mcp.local
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - persona-network
+    depends_on:
+      - postgres
+    profiles:
+      - admin
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  persona-network:
+    driver: bridge
+    name: persona-mcp-network
