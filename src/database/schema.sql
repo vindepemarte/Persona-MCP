@@ -220,20 +220,38 @@ DROP TRIGGER IF EXISTS update_thinking_patterns_updated_at ON thinking_patterns;
 CREATE TRIGGER update_thinking_patterns_updated_at BEFORE UPDATE ON thinking_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert some default personality traits structure (only if not exists)
-INSERT INTO personality_traits (name, trait_type, value, description, examples) VALUES
-('Openness to Experience', 'openness', 70, 'Willingness to try new things and think outside the box', ARRAY['Enjoys learning new skills', 'Open to different perspectives']),
-('Conscientiousness', 'conscientiousness', 80, 'Organization, responsibility, and attention to detail', ARRAY['Plans ahead', 'Meets deadlines consistently']),
-('Extraversion', 'extraversion', 60, 'Energy derived from social interaction', ARRAY['Enjoys group discussions', 'Comfortable presenting']),
-('Agreeableness', 'agreeableness', 75, 'Tendency to be cooperative and trusting', ARRAY['Seeks consensus', 'Considers others feelings']),
-('Emotional Stability', 'neuroticism', 30, 'Ability to remain calm under pressure (low neuroticism)', ARRAY['Stays calm in crises', 'Handles stress well'])
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO personality_traits (name, trait_type, value, description, examples) 
+SELECT 'Openness to Experience', 'openness', 70, 'Willingness to try new things and think outside the box', ARRAY['Enjoys learning new skills', 'Open to different perspectives']
+WHERE NOT EXISTS (SELECT 1 FROM personality_traits WHERE name = 'Openness to Experience');
+
+INSERT INTO personality_traits (name, trait_type, value, description, examples) 
+SELECT 'Conscientiousness', 'conscientiousness', 80, 'Organization, responsibility, and attention to detail', ARRAY['Plans ahead', 'Meets deadlines consistently']
+WHERE NOT EXISTS (SELECT 1 FROM personality_traits WHERE name = 'Conscientiousness');
+
+INSERT INTO personality_traits (name, trait_type, value, description, examples) 
+SELECT 'Extraversion', 'extraversion', 60, 'Energy derived from social interaction', ARRAY['Enjoys group discussions', 'Comfortable presenting']
+WHERE NOT EXISTS (SELECT 1 FROM personality_traits WHERE name = 'Extraversion');
+
+INSERT INTO personality_traits (name, trait_type, value, description, examples) 
+SELECT 'Agreeableness', 'agreeableness', 75, 'Tendency to be cooperative and trusting', ARRAY['Seeks consensus', 'Considers others feelings']
+WHERE NOT EXISTS (SELECT 1 FROM personality_traits WHERE name = 'Agreeableness');
+
+INSERT INTO personality_traits (name, trait_type, value, description, examples) 
+SELECT 'Emotional Stability', 'neuroticism', 30, 'Ability to remain calm under pressure (low neuroticism)', ARRAY['Stays calm in crises', 'Handles stress well']
+WHERE NOT EXISTS (SELECT 1 FROM personality_traits WHERE name = 'Emotional Stability');
 
 -- Insert some default communication patterns
-INSERT INTO communication_patterns (category, pattern, frequency, context, examples) VALUES
-('writing_style', 'Clear and concise', 8, ARRAY['emails', 'documentation'], ARRAY['Gets to the point quickly', 'Uses bullet points']),
-('tone', 'Professional but friendly', 7, ARRAY['work communication'], ARRAY['Uses please and thank you', 'Maintains warmth']),
-('vocabulary', 'Technical when appropriate', 6, ARRAY['technical discussions'], ARRAY['Uses industry terms correctly', 'Explains complex concepts simply'])
-ON CONFLICT (category, pattern) DO NOTHING;
+INSERT INTO communication_patterns (category, pattern, frequency, context, examples) 
+SELECT 'writing_style', 'Clear and concise', 8, ARRAY['emails', 'documentation'], ARRAY['Gets to the point quickly', 'Uses bullet points']
+WHERE NOT EXISTS (SELECT 1 FROM communication_patterns WHERE category = 'writing_style' AND pattern = 'Clear and concise');
+
+INSERT INTO communication_patterns (category, pattern, frequency, context, examples) 
+SELECT 'tone', 'Professional but friendly', 7, ARRAY['work communication'], ARRAY['Uses please and thank you', 'Maintains warmth']
+WHERE NOT EXISTS (SELECT 1 FROM communication_patterns WHERE category = 'tone' AND pattern = 'Professional but friendly');
+
+INSERT INTO communication_patterns (category, pattern, frequency, context, examples) 
+SELECT 'vocabulary', 'Technical when appropriate', 6, ARRAY['technical discussions'], ARRAY['Uses industry terms correctly', 'Explains complex concepts simply']
+WHERE NOT EXISTS (SELECT 1 FROM communication_patterns WHERE category = 'vocabulary' AND pattern = 'Technical when appropriate');
 
 -- Insert some default preferences
 INSERT INTO preferences (category, key, value, description, importance) VALUES
