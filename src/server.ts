@@ -388,7 +388,19 @@ class PersonaMCPServer {
               response = { tools: PERSONA_MCP_TOOLS };
             } else if (request.method === 'tools/call') {
               const toolName = request.params?.name;
-              const args = request.params?.arguments || {};
+              let args = request.params?.arguments || {};
+              
+              // Parse arguments if they come as a JSON string
+              if (typeof args === 'string') {
+                try {
+                  args = JSON.parse(args);
+                } catch (e) {
+                  console.error('Failed to parse arguments JSON string:', e);
+                  res.writeHead(400, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ error: 'Invalid arguments format' }));
+                  return;
+                }
+              }
               
               switch (toolName) {
                  case 'learn_persona':
