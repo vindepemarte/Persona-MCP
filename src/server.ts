@@ -384,7 +384,44 @@ class PersonaMCPServer {
             const request = JSON.parse(body);
             let response;
             
-            if (request.method === 'tools/list') {
+            // Handle array format from AI agents: [{"tool_name": "learn_persona", "arguments": "..."}]
+            if (Array.isArray(request) && request.length > 0) {
+              const toolCall = request[0];
+              const toolName = toolCall.tool_name;
+              let args = toolCall.arguments || {};
+              
+              // Parse arguments if they come as a JSON string
+              if (typeof args === 'string') {
+                try {
+                  args = JSON.parse(args);
+                } catch (e) {
+                  console.error('Failed to parse arguments JSON string:', e);
+                  res.writeHead(400, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ error: 'Invalid arguments format' }));
+                  return;
+                }
+              }
+              
+              switch (toolName) {
+                 case 'learn_persona':
+                   response = await this.handleLearnPersona(args);
+                   break;
+                 case 'get_persona':
+                   response = await this.handleGetPersona(args);
+                   break;
+                 case 'emulate_response':
+                   response = await this.handleEmulateResponse(args);
+                   break;
+                 case 'analyze_compatibility':
+                   response = await this.handleAnalyzeCompatibility(args);
+                   break;
+                 case 'update_goals':
+                   response = await this.handleUpdateGoals(args);
+                   break;
+                 default:
+                   response = { error: `Unknown tool: ${toolName}` };
+               }
+            } else if (request.method === 'tools/list') {
               response = { tools: PERSONA_MCP_TOOLS };
             } else if (request.method === 'tools/call') {
               const toolName = request.params?.name;
