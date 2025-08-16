@@ -125,33 +125,84 @@ class PersonaMCPServer {
   }
 
   private async handleLearnPersona(args: any) {
-    const { content, content_type, context } = args;
-    
-    const learningInput: PersonaLearningInput = {
-      content,
-      content_type,
-      context,
-      metadata: {}
-    };
+    try {
+      // Validate required arguments
+      if (!args.content) {
+        throw new Error('Content is required for learning');
+      }
 
-    const result = await this.personaService.learnFromInput(learningInput);
-    
-    await this.logInteraction('learn_persona', args, result, true);
-    
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            message: 'Successfully learned from the provided content',
-            insights_gained: result.insights_gained,
-            confidence_improvement: result.confidence_improvement,
-            updated_traits: result.updated_traits
-          }, null, 2)
+      const { content, content_type = 'text', context } = args;
+      
+      // Handle different content formats from n8n
+      let processedContent = content;
+      if (typeof content === 'object') {
+        // If content is already an object (from n8n), stringify it
+        processedContent = JSON.stringify(content);
+      }
+      
+      const learningInput: PersonaLearningInput = {
+        content: processedContent,
+        content_type: content_type,
+        context: context || null,
+        metadata: {
+          source: 'n8n_workflow',
+          timestamp: new Date().toISOString(),
+          original_format: typeof content
         }
-      ]
-    };
+      };
+
+      const result = await this.personaService.learnFromInput(learningInput);
+      
+      await this.logInteraction('learn_persona', args, result, result.success);
+      
+      if (!result.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                success: false,
+                message: 'Failed to learn from the provided content',
+                error: 'Processing failed during analysis'
+              }, null, 2)
+            }
+          ]
+        };
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: 'Successfully learned from the provided content',
+              insights_gained: result.insights_gained,
+              confidence_improvement: result.confidence_improvement,
+              updated_traits: result.updated_traits,
+              total_insights: result.insights_gained.length
+            }, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+       console.error('Error in handleLearnPersona:', error);
+       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+       await this.logInteraction('learn_persona', args, null, false, errorMessage);
+       
+       return {
+         content: [
+           {
+             type: 'text',
+             text: JSON.stringify({
+               success: false,
+               message: 'Error processing learn_persona request',
+               error: errorMessage
+             }, null, 2)
+           }
+         ]
+       };
+     }
   }
 
   private async handleGetPersona(args: any) {

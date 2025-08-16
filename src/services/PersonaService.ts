@@ -54,28 +54,32 @@ class PersonaService {
 
   async learnFromInput(input: PersonaLearningInput): Promise<LearningResult> {
     try {
-      // Store the learning input
-      await this.db.query(
-        `INSERT INTO learning_inputs (content, content_type, context, metadata) 
-         VALUES ($1, $2, $3, $4)`,
-        [input.content, input.content_type, input.context || null, JSON.stringify(input.metadata || {})]
-      );
-
-      // Analyze the content and extract insights
+      // Store the learning input in database
+      await this.storeLearningInput(input);
+      
+      // Analyze content and extract insights
       const insights = await this.analyzeContent(input);
       
-      // Update persona data based on insights
+      // Update persona based on insights
       const updatedTraits = await this.updatePersonaFromInsights(insights);
+      
+      // Calculate confidence improvement
+      const confidenceImprovement = Math.min(insights.length * 5, 25);
       
       return {
         success: true,
         insights_gained: insights,
-        confidence_improvement: 5, // Base improvement
+        confidence_improvement: confidenceImprovement,
         updated_traits: updatedTraits
       };
     } catch (error) {
-      console.error('Error learning from input:', error);
-      throw error;
+      console.error('Error in learnFromInput:', error);
+      return {
+        success: false,
+        insights_gained: [],
+        confidence_improvement: 0,
+        updated_traits: []
+      };
     }
   }
 
@@ -253,7 +257,61 @@ class PersonaService {
   private async analyzeContent(input: PersonaLearningInput): Promise<string[]> {
     const insights: string[] = [];
     
-    // Basic content analysis - in a real implementation, this would use NLP
+    try {
+      // Try to parse as structured JSON data first
+      const parsedData = JSON.parse(input.content);
+      
+      if (parsedData && typeof parsedData === 'object') {
+        // Handle structured persona data from AI agent
+        if (parsedData.name) {
+          insights.push(`Name identified: ${parsedData.name}`);
+          await this.storePersonalityTrait(`name: ${parsedData.name}`);
+        }
+        
+        if (parsedData.traits && Array.isArray(parsedData.traits)) {
+          for (const trait of parsedData.traits) {
+            insights.push(`Personality trait: ${trait}`);
+            await this.storePersonalityTrait(trait);
+          }
+        }
+        
+        if (parsedData.communication_style) {
+          insights.push(`Communication style: ${parsedData.communication_style}`);
+          await this.storeCommunicationPattern(parsedData.communication_style);
+        }
+        
+        if (parsedData.work_environment) {
+          insights.push(`Work environment preference: ${parsedData.work_environment}`);
+          await this.storePreference('work_environment', parsedData.work_environment);
+        }
+        
+        if (parsedData.communication_preference) {
+          insights.push(`Communication preference: ${parsedData.communication_preference}`);
+          await this.storePreference('communication_preference', parsedData.communication_preference);
+        }
+        
+        if (parsedData.dislikes && Array.isArray(parsedData.dislikes)) {
+          for (const dislike of parsedData.dislikes) {
+            insights.push(`Dislike identified: ${dislike}`);
+            await this.storePreference('dislikes', dislike);
+          }
+        }
+        
+        if (parsedData.goals && Array.isArray(parsedData.goals)) {
+          for (const goal of parsedData.goals) {
+            insights.push(`Goal identified: ${goal}`);
+            await this.storeGoal(goal);
+          }
+        }
+        
+        return insights;
+      }
+    } catch (parseError) {
+      // If JSON parsing fails, fall back to text analysis
+      console.log('Content is not JSON, using text analysis');
+    }
+    
+    // Basic content analysis for unstructured text
     const content = input.content.toLowerCase();
     
     // Detect personality indicators
@@ -273,21 +331,32 @@ class PersonaService {
   private async updatePersonaFromInsights(insights: string[]): Promise<string[]> {
     const updatedTraits: string[] = [];
     
-    // This is a simplified implementation
-    // In practice, you'd use more sophisticated analysis
+    // Process insights and categorize updates
     for (const insight of insights) {
-      if (insight === 'Preference detected') {
+      if (insight.includes('Name identified')) {
+        updatedTraits.push('name');
+      }
+      if (insight.includes('Personality trait')) {
+        updatedTraits.push('personality_traits');
+      }
+      if (insight.includes('Communication style')) {
+        updatedTraits.push('communication_patterns');
+      }
+      if (insight.includes('preference') || insight.includes('environment')) {
         updatedTraits.push('preferences');
       }
-      if (insight === 'Goal identified') {
+      if (insight.includes('Goal identified')) {
         updatedTraits.push('goals');
+      }
+      if (insight.includes('Dislike identified')) {
+        updatedTraits.push('preferences');
       }
       if (insight === 'Thinking pattern observed') {
         updatedTraits.push('thinking_patterns');
       }
     }
     
-    return updatedTraits;
+    return [...new Set(updatedTraits)]; // Remove duplicates
   }
 
   private async getPersonalityTraits(): Promise<PersonalityTrait[]> {
@@ -311,8 +380,88 @@ class PersonaService {
   }
 
   private async getThinkingPatterns(): Promise<ThinkingPattern[]> {
-    const result = await this.db.query('SELECT * FROM thinking_patterns ORDER BY effectiveness DESC');
+    const result = await this.db.query('SELECT * FROM thinking_patterns ORDER BY created_at DESC');
     return result.rows;
+  }
+
+  // Helper methods for storing structured persona data
+
+  private async storeLearningInput(input: PersonaLearningInput): Promise<void> {
+    await this.db.query(
+      `INSERT INTO learning_inputs (content, content_type, context, metadata) 
+       VALUES ($1, $2, $3, $4)`,
+      [input.content, input.content_type, input.context || null, JSON.stringify(input.metadata || {})]
+    );
+  }
+
+  private async storePersonalityTrait(trait: string): Promise<void> {
+    // Extract trait type if it follows "type: value" format, otherwise use 'analytical' as default
+    const [traitType, traitValue] = trait.includes(':') ? trait.split(':', 2).map(s => s.trim()) : ['analytical', trait];
+    
+    await this.db.query(
+      `INSERT INTO personality_traits (name, trait_type, value, description, created_at) 
+       VALUES ($1, $2, 80, $3, NOW()) 
+       ON CONFLICT (name) DO UPDATE SET 
+       value = GREATEST(personality_traits.value, 80), 
+       description = COALESCE(personality_traits.description, $3),
+       updated_at = NOW()`,
+      [traitValue, traitType, trait]
+    );
+  }
+
+  private async storeCommunicationPattern(pattern: string): Promise<void> {
+    // Determine category based on pattern content
+    let category = 'writing_style';
+    if (pattern.toLowerCase().includes('tone') || pattern.toLowerCase().includes('formal') || pattern.toLowerCase().includes('casual')) {
+      category = 'tone';
+    } else if (pattern.toLowerCase().includes('structure') || pattern.toLowerCase().includes('organize')) {
+      category = 'structure';
+    } else if (pattern.toLowerCase().includes('humor') || pattern.toLowerCase().includes('joke')) {
+      category = 'humor';
+    }
+    
+    await this.db.query(
+      `INSERT INTO communication_patterns (category, pattern, frequency, created_at) 
+       VALUES ($1, $2, 1, NOW()) 
+       ON CONFLICT (category, pattern) DO UPDATE SET 
+       frequency = communication_patterns.frequency + 1, updated_at = NOW()`,
+      [category, pattern]
+    );
+  }
+
+  private async storePreference(category: string, value: string): Promise<void> {
+    // Use category as key, store value as JSONB
+    const jsonValue = typeof value === 'string' ? JSON.stringify({preference: value}) : JSON.stringify(value);
+    
+    await this.db.query(
+      `INSERT INTO preferences (category, key, value, description, created_at) 
+       VALUES ($1, $2, $3, $4, NOW()) 
+       ON CONFLICT (category, key) DO UPDATE SET 
+       value = $3, description = $4, updated_at = NOW()`,
+      [category, category, jsonValue, `Preference for ${category}: ${value}`]
+    );
+  }
+
+  private async storeGoal(goalDescription: string): Promise<void> {
+    // Determine category based on goal content
+    let category = 'personal';
+    if (goalDescription.toLowerCase().includes('work') || goalDescription.toLowerCase().includes('career') || goalDescription.toLowerCase().includes('professional')) {
+      category = 'professional';
+    } else if (goalDescription.toLowerCase().includes('learn') || goalDescription.toLowerCase().includes('study') || goalDescription.toLowerCase().includes('skill')) {
+      category = 'learning';
+    } else if (goalDescription.toLowerCase().includes('creative') || goalDescription.toLowerCase().includes('art') || goalDescription.toLowerCase().includes('design')) {
+      category = 'creative';
+    } else if (goalDescription.toLowerCase().includes('health') || goalDescription.toLowerCase().includes('fitness') || goalDescription.toLowerCase().includes('exercise')) {
+      category = 'health';
+    } else if (goalDescription.toLowerCase().includes('money') || goalDescription.toLowerCase().includes('financial') || goalDescription.toLowerCase().includes('save')) {
+      category = 'financial';
+    }
+    
+    await this.db.query(
+      `INSERT INTO goals (title, description, category, status, priority, created_at) 
+       VALUES ($1, $2, $3, 'active', 'medium', NOW())`,
+      [goalDescription, goalDescription, category]
+    );
   }
 
   private async getFullPersona(): Promise<any> {

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Persona Chat Interface</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1A004C, #0D0026);
+            color: #F0F0F0;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(44, 0, 124, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(162, 178, 255, 0.2);
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(162, 178, 255, 0.2);
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            margin: 0;
+            color: #A2B2FF;
+            font-size: 24px;
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #4B83FF;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            background: rgba(162, 178, 255, 0.1);
+            color: #F0F0F0;
+            border: 1px solid rgba(162, 178, 255, 0.3);
+            align-self: flex-start;
+        }
+
+        .message.error {
+            background: rgba(255, 107, 107, 0.2);
+            color: #FF6B6B;
+            border: 1px solid rgba(255, 107, 107, 0.5);
+        }
+
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid rgba(162, 178, 255, 0.2);
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid rgba(162, 178, 255, 0.3);
+            border-radius: 25px;
+            background: rgba(64, 26, 148, 0.5);
+            color: #F0F0F0;
+            font-size: 16px;
+        }
+
+        .chat-input input::placeholder {
+            color: rgba(240, 240, 240, 0.6);
+        }
+
+        .chat-input button {
+            padding: 12px 24px;
+            background: #4B83FF;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input button:hover {
+            background: #6C9AFF;
+            transform: translateY(-2px);
+        }
+
+        .chat-input button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .tool-info {
+            background: rgba(0, 209, 161, 0.1);
+            border: 1px solid rgba(0, 209, 161, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px;
+            font-size: 14px;
+        }
+
+        .tool-info h3 {
+            margin: 0 0 10px 0;
+            color: #00D1A1;
+        }
+
+        .tool-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .tool-list li {
+            padding: 5px 0;
+            color: rgba(240, 240, 240, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 MCP Persona Chat</h1>
+            <p>Chat with an AI that has access to your persona management tools</p>
+        </div>
+
+        <div class="tool-info">
+            <h3>Available MCP Tools:</h3>
+            <ul class="tool-list">
+                <li>🎯 <strong>learn_persona</strong> - Learn about your personality and preferences</li>
+                <li>👤 <strong>get_persona</strong> - Retrieve your persona information</li>
+                <li>✍️ <strong>emulate_response</strong> - Generate responses as you would</li>
+                <li>🔍 <strong>analyze_compatibility</strong> - Analyze content compatibility</li>
+                <li>🎯 <strong>update_goals</strong> - Update your goals and priorities</li>
+            </ul>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+                Hello! I'm your AI assistant with access to persona management tools. I can help you learn about your personality, get persona insights, and even respond to messages as you would. What would you like to explore?
+            </div>
+        </div>
+
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Replace this with your actual n8n webhook URL
+        const N8N_WEBHOOK_URL = 'https://auto.iacovici.it/webhook/chat';
+        
+        let isWaitingForResponse = false;
+
+        function addMessage(content, type = 'assistant') {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = content;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const message = input.value.trim();
+
+            if (!message || isWaitingForResponse) return;
+
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Show loading state
+            isWaitingForResponse = true;
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        user_id: 'web-user',
+                        session_id: Date.now().toString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                                       const data = await response.json();
+                       
+                       // Handle different response formats
+                       let responseText = '';
+                       
+                       // Check if response is an array (n8n format)
+                       if (Array.isArray(data) && data.length > 0) {
+                           const firstItem = data[0];
+                           
+                           // Handle nested response structure from MCP server
+                            if (firstItem.response && Array.isArray(firstItem.response)) {
+                                const mcpResponse = firstItem.response[0];
+                                if (mcpResponse.error) {
+                                    responseText = `❌ MCP Error: ${mcpResponse.error}`;
+                                    if (mcpResponse.error.includes('Unknown tool: undefined') || mcpResponse.error.includes('Unknown tool: null')) {
+                                        responseText += '\n\n🔧 **Fix needed in n8n workflow:**\n- **URL Format**: Remove spaces and backticks from MCP Tool URL\n- **Tool Name**: Ensure `tool_name` parameter uses `$fromAI(\'tool_name\', \'get_persona\', \'string\')`\n- **Arguments**: Use `$fromAI(\'arguments\', \'{}\', \'string\') | parseJson` for arguments\n- **Parameter Types**: Both parameters must be \'string\' type in n8n\n\n**Debug**: Check n8n execution logs for actual values being sent.';
+                                    }
+                                } else if (mcpResponse.content && Array.isArray(mcpResponse.content)) {
+                                    // Handle successful MCP response with content
+                                    const content = mcpResponse.content[0];
+                                    if (content.type === 'text' && content.text) {
+                                        try {
+                                            const parsedData = JSON.parse(content.text);
+                                            if (parsedData.confidence_score === 0 && Object.keys(parsedData.persona_data || {}).length === 0) {
+                                                responseText = `🤖 **Persona Status:** Empty (Confidence: ${parsedData.confidence_score}%)\n\n📝 **To add data about yourself, try these examples:**\n\n• "Learn that I prefer working in quiet environments and like to plan things in advance"\n• "I'm analytical, detail-oriented, and prefer written communication over phone calls"\n• "My goal is to improve my productivity and learn new programming languages"\n• "I like direct, concise communication and dislike unnecessary meetings"\n\n💡 **The AI will use the learn_persona tool to store this information!**`;
+                                            } else {
+                                                responseText = `📊 **Your Persona Data:**\n\n${JSON.stringify(parsedData, null, 2)}`;
+                                            }
+                                        } catch (e) {
+                                            responseText = content.text;
+                                        }
+                                    } else {
+                                        responseText = JSON.stringify(mcpResponse);
+                                    }
+                                } else {
+                                    responseText = JSON.stringify(mcpResponse);
+                                }
+                            } else if (firstItem.response) {
+                               responseText = firstItem.response;
+                           } else if (firstItem.text) {
+                               responseText = firstItem.text;
+                           } else if (firstItem.message) {
+                               responseText = firstItem.message;
+                           } else if (firstItem.error) {
+                               // Handle MCP server errors at top level
+                               if (firstItem.error.includes('Unknown tool: undefined') || firstItem.error.includes('Unknown tool: null')) {
+                                   responseText = `❌ **MCP Server Error**: Tool name not recognized.\n\n**Common Issues:**\n1. **URL Format**: Remove spaces and backticks from MCP Tool URL\n2. **Tool Name**: Ensure \`tool_name\` parameter uses \`$fromAI('tool_name', 'get_persona', 'string')\`\n3. **Arguments**: Use \`$fromAI('arguments', '{}', 'string') | parseJson\` for arguments\n4. **Parameter Types**: Both parameters must be 'string' type in n8n\n\n**Available Tools:** learn_persona, get_persona, emulate_response, analyze_compatibility, update_goals\n\n**Debug**: Check n8n execution logs for actual values being sent.`;
+                               } else if (firstItem.error.includes('Invalid request') || firstItem.error.includes('JSON')) {
+                                   responseText = `❌ **MCP Server Error**: Invalid request format.\n\n**Fix n8n MCP Tool Body:**\n\`\`\`json\n{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "id": "1",\n  "params": {\n    "name": "{{ $fromAI('tool_name', 'get_persona', 'string') }}",\n    "arguments": {{ $fromAI('arguments', '{}', 'string') | parseJson }}\n  }\n}\n\`\`\`\n\n**Important**: Remove any spaces or backticks from the URL field.`;
+                               } else {
+                                   responseText = `Error: ${firstItem.error}`;
+                               }
+                           } else {
+                               responseText = JSON.stringify(firstItem);
+                           }
+                       }
+                       // Handle object responses
+                       else if (data.success && data.response) {
+                           responseText = data.response;
+                       } else if (data.response) {
+                           responseText = data.response;
+                       } else if (data.text) {
+                           responseText = data.text;
+                       } else if (data.message) {
+                           responseText = data.message;
+                       } else if (data.error) {
+                           // Handle MCP server errors
+                           if (data.error.includes('Unknown tool: undefined') || data.error.includes('Unknown tool: null')) {
+                               responseText = `❌ **MCP Server Error**: Tool name not recognized.\n\n**Common Issues:**\n1. **URL Format**: Remove spaces and backticks from MCP Tool URL\n2. **Tool Name**: Ensure \`tool_name\` parameter uses \`$fromAI('tool_name', 'get_persona', 'string')\`\n3. **Arguments**: Use \`$fromAI('arguments', '{}', 'string') | parseJson\` for arguments\n4. **Parameter Types**: Both parameters must be 'string' type in n8n\n\n**Available Tools:** learn_persona, get_persona, emulate_response, analyze_compatibility, update_goals\n\n**Debug**: Check n8n execution logs for actual values being sent.`;
+                           } else if (data.error.includes('Invalid request') || data.error.includes('JSON')) {
+                               responseText = `❌ **MCP Server Error**: Invalid request format.\n\n**Fix n8n MCP Tool Body:**\n\`\`\`json\n{\n  "jsonrpc": "2.0",\n  "method": "tools/call",\n  "id": "1",\n  "params": {\n    "name": "{{ $fromAI('tool_name', 'get_persona', 'string') }}",\n    "arguments": {{ $fromAI('arguments', '{}', 'string') | parseJson }}\n  }\n}\n\`\`\`\n\n**Important**: Remove any spaces or backticks from the URL field.`;
+                           } else {
+                               responseText = `Error: ${data.error}`;
+                           }
+                       } else if (typeof data === 'string') {
+                           responseText = data;
+                       } else {
+                           responseText = JSON.stringify(data);
+                       }
+                       
+                       if (responseText) {
+                           addMessage(responseText, 'assistant');
+                       } else {
+                           addMessage('Sorry, I encountered an error. Please try again.', 'error');
+                       }
+
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, I cannot connect to the server right now. Please check your n8n workflow is running.', 'error');
+            } finally {
+                // Reset loading state
+                isWaitingForResponse = false;
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+            }
+        }
+
+        // Example conversation starters
+        const examples = [
+            "I want to learn about my communication style",
+            "What is my personality like?",
+            "Help me respond to an email from my boss",
+            "Analyze if this decision aligns with my values",
+            "Update my goals for this quarter"
+        ];
+
+        // Add example buttons (optional)
+        function addExampleButtons() {
+            const examplesContainer = document.createElement('div');
+            examplesContainer.style.padding = '20px';
+            examplesContainer.style.borderTop = '1px solid rgba(162, 178, 255, 0.2)';
+            
+            const title = document.createElement('h4');
+            title.textContent = 'Try these examples:';
+            title.style.margin = '0 0 10px 0';
+            title.style.color = '#A2B2FF';
+            
+            examplesContainer.appendChild(title);
+            
+            examples.forEach(example => {
+                const button = document.createElement('button');
+                button.textContent = example;
+                button.style.cssText = `
+                    background: rgba(162, 178, 255, 0.1);
+                    border: 1px solid rgba(162, 178, 255, 0.3);
+                    color: #F0F0F0;
+                    padding: 8px 16px;
+                    margin: 5px;
+                    border-radius: 15px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: all 0.3s ease;
+                `;
+                button.onmouseover = () => button.style.background = 'rgba(162, 178, 255, 0.2)';
+                button.onmouseout = () => button.style.background = 'rgba(162, 178, 255, 0.1)';
+                button.onclick = () => {
+                    document.getElementById('messageInput').value = example;
+                    sendMessage();
+                };
+                examplesContainer.appendChild(button);
+            });
+            
+            document.querySelector('.chat-container').appendChild(examplesContainer);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            addExampleButtons();
+        });
+    </script>
+</body>
+</html>
