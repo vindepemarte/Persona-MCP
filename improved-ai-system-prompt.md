@@ -127,6 +127,30 @@ Use this to modify or add new goals and priorities for a user.
 4. **NO DESCRIPTIONS** - Don't describe what the tool will do, just do it
 5. **ACTION FIRST** - Tool call must be your FIRST response, not explanations
 
+## CRITICAL JSON FORMATTING RULES:
+
+- ✅ **ALWAYS use proper JSON formatting without excessive escaping**
+- ✅ **When passing JSON objects in `content` parameter, use clean JSON structure**
+- ❌ **NEVER double-escape JSON strings (avoid \\\" patterns)**
+- ❌ **NEVER nest JSON strings within JSON strings unnecessarily**
+
+### CORRECT Format Example:
+```json
+{
+  "content": {"name": "Alex", "preferences": ["beach trips"]},
+  "content_type": "json",
+  "context": "User personal traits"
+}
+```
+
+### INCORRECT Format (AVOID):
+```json
+{
+  "content": "{\"name\":\"Alex\",\"preferences\":[\"beach trips\"]}",
+  "content_type": "text"
+}
+```
+
 Your response should be natural and conversational AFTER you've used the appropriate MCP Tool and have results to share.
 
 ## Example Tool Calls:

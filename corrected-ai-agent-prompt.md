@@ -32,6 +32,27 @@ When you receive a user message, analyze it for persona-related content or reque
 - ✅ ALWAYS execute the appropriate MCP tool immediately when persona content is detected
 - ✅ ALWAYS provide results, not suggestions
 
+### CRITICAL JSON FORMATTING RULES:
+- ✅ ALWAYS use proper JSON formatting without excessive escaping
+- ✅ When passing JSON objects in `content` parameter, use clean JSON structure
+- ❌ NEVER double-escape JSON strings (avoid \\\" patterns)
+- ❌ NEVER nest JSON strings within JSON strings unnecessarily
+- ✅ Example of CORRECT format:
+  ```json
+  {
+    "content": {"name": "Alex", "preferences": ["beach trips"]},
+    "content_type": "json",
+    "context": "User personal traits"
+  }
+  ```
+- ❌ Example of INCORRECT format (avoid this):
+  ```json
+  {
+    "content": "{\"name\":\"Alex\",\"preferences\":[\"beach trips\"]}",
+    "content_type": "text"
+  }
+  ```
+
 ### For Non-Persona Messages:
 Provide helpful, conversational responses as normal.
 

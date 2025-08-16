@@ -391,16 +391,27 @@ class PersonaMCPServer {
               let args = toolCall.arguments || {};
               
               // Parse arguments if they come as a JSON string
-              if (typeof args === 'string') {
-                try {
-                  args = JSON.parse(args);
-                } catch (e) {
-                  console.error('Failed to parse arguments JSON string:', e);
-                  res.writeHead(400, { 'Content-Type': 'application/json' });
-                  res.end(JSON.stringify({ error: 'Invalid arguments format' }));
-                  return;
-                }
-              }
+               if (typeof args === 'string') {
+                 try {
+                   // Handle multiple levels of JSON escaping
+                   let parsedArgs = args;
+                   let attempts = 0;
+                   const maxAttempts = 3;
+                   
+                   while (typeof parsedArgs === 'string' && attempts < maxAttempts) {
+                     parsedArgs = JSON.parse(parsedArgs);
+                     attempts++;
+                   }
+                   
+                   args = parsedArgs;
+                 } catch (e) {
+                   console.error('Failed to parse arguments JSON string:', e);
+                   console.error('Original arguments:', args);
+                   res.writeHead(400, { 'Content-Type': 'application/json' });
+                   res.end(JSON.stringify({ error: 'Invalid arguments format' }));
+                   return;
+                 }
+               }
               
               switch (toolName) {
                  case 'learn_persona':
@@ -430,9 +441,20 @@ class PersonaMCPServer {
               // Parse arguments if they come as a JSON string
               if (typeof args === 'string') {
                 try {
-                  args = JSON.parse(args);
+                  // Handle multiple levels of JSON escaping
+                  let parsedArgs = args;
+                  let attempts = 0;
+                  const maxAttempts = 3;
+                  
+                  while (typeof parsedArgs === 'string' && attempts < maxAttempts) {
+                    parsedArgs = JSON.parse(parsedArgs);
+                    attempts++;
+                  }
+                  
+                  args = parsedArgs;
                 } catch (e) {
                   console.error('Failed to parse arguments JSON string:', e);
+                  console.error('Original arguments:', args);
                   res.writeHead(400, { 'Content-Type': 'application/json' });
                   res.end(JSON.stringify({ error: 'Invalid arguments format' }));
                   return;
